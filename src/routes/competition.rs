@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use aws_sdk_dynamodb::{self, types::AttributeValue, Client};
+
 use axum::{
-    extract::State,
+    extract::{Path, State},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json,
 };
 use chrono::NaiveDate;
@@ -122,10 +123,61 @@ async fn add_competition(
             .into_response(),
     }
 }
-// #[axum::debug_handler]
+/// An endpoint that will return all competitions in the database
 async fn get_competitions(State(db_client): State<Client>) -> Response {
     match list_competitions(&db_client).await {
         Ok(competitions) => Json(competitions).into_response(),
+        Err(err) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            err.to_string(),
+        )
+            .into_response(),
+    }
+}
+/// Endpoint that will accept a competition_id in the path and return the competition with that id
+async fn get_competition(
+    Path(competition_id): Path<Uuid>,
+    State(db_client): State<Client>,
+) -> Response {
+    let result = db_client
+        .get_item()
+        .table_name(TABLE_NAME)
+        .key(ID_KEY, AttributeValue::S(competition_id.to_string()))
+        .send()
+        .await;
+    match result {
+        Ok(result) => {
+            let item = result.item.unwrap();
+            let competition = Competition::from_hashmap(item).unwrap();
+            Json(competition).into_response()
+        }
+        Err(err) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            err.to_string(),
+        )
+            .into_response(),
+    }
+}
+
+/// Endpoint that will try to delete a competition with the given id
+/// If the competition is not found, it will return a 404
+/// If there is an error, it will return a 500
+/// If the competition is deleted successfully, it will return a 200
+/// The response body will be empty
+///
+pub async fn delete_competition(
+    Path(competition_id): Path<Uuid>,
+    State(db_client): State<Client>,
+) -> Response {
+    let result = db_client
+        .delete_item()
+        .table_name(TABLE_NAME)
+        .key(ID_KEY, AttributeValue::S(competition_id.to_string()))
+        .send()
+        .await;
+    // .map_err(|e| DynamoDbError::from(e));
+    match result {
+        Ok(_) => axum::http::StatusCode::OK.into_response(),
         Err(err) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             err.to_string(),
@@ -138,4 +190,6 @@ pub fn competition_routes() -> axum::Router<Client> {
     axum::Router::new()
         .route("/", post(add_competition))
         .route("/", get(get_competitions))
+        .route("/:competition_id", get(get_competition))
+        .route("/:competition_id", delete(delete_competition))
 }
