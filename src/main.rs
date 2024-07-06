@@ -12,8 +12,8 @@ use axum::{
     Json, Router,
 };
 
-use routes::athlete;
 use routes::competition;
+use routes::{athlete, event};
 
 async fn list_tables(State(db_client): State<Client>) -> Response {
     let result = db_client.list_tables().send().await;
@@ -113,10 +113,12 @@ async fn main() {
     // Create Axum router
     check_and_create_table(&client, competition::TABLE_NAME, competition::ID_KEY).await;
     check_and_create_table(&client, athlete::TABLE_NAME, athlete::ID_KEY).await;
+    check_and_create_table(&client, event::TABLE_NAME, event::ID_KEY).await;
     let app = Router::new()
         .route("/tables", get(list_tables)) // TODO: Remove this route. Only used to test things
         .nest("/competitions", competition::competition_routes())
         .nest("/athletes", athlete::athlete_routes())
+        .nest("/events", event::event_routes())
         .with_state(client);
 
     // Start the Axum server

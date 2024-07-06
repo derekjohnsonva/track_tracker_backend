@@ -26,6 +26,7 @@ struct Athlete {
 struct AthleteData {
     first_name: String,
     last_name: String,
+    // TODO: Add bio field
     birthday: NaiveDate,
 }
 
