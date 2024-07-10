@@ -8,25 +8,26 @@ use uuid::Uuid;
 
 use super::utils::Item;
 use super::utils::{add_item, delete_item, get_item, get_items};
-pub const TABLE_NAME: &'static str = "athletes";
-pub const ID_KEY: &'static str = "Id";
-pub const FIRST_NAME_KEY: &'static str = "FirstName";
-pub const LAST_NAME_KEY: &'static str = "LastName";
-pub const BIRTHDAY_KEY: &'static str = "Birthday";
+pub const TABLE_NAME: &str = "athletes";
+pub const ID_KEY: &str = "Id";
+pub const FIRST_NAME_KEY: &str = "FirstName";
+pub const LAST_NAME_KEY: &str = "LastName";
+pub const BIO_KEY: &str = "Bio";
+pub const BIRTHDAY_KEY: &str = "Birthday";
 
 // Define your Competition struct
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 struct Athlete {
     id: Uuid,
     #[serde(flatten)]
     athlete_data: AthleteData,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 struct AthleteData {
     first_name: String,
     last_name: String,
-    // TODO: Add bio field
+    bio: String,
     birthday: NaiveDate,
 }
 
@@ -41,7 +42,7 @@ impl Item for Athlete {
     fn table_name() -> &'static str {
         TABLE_NAME
     }
-    fn primary_key_name() -> &'static str {
+    fn partition_key_name() -> &'static str {
         ID_KEY
     }
 
@@ -50,6 +51,7 @@ impl Item for Athlete {
         let id = Uuid::parse_str(id).unwrap();
         let first_name: String = map.get(FIRST_NAME_KEY)?.as_s().unwrap().to_string();
         let last_name: String = map.get(LAST_NAME_KEY)?.as_s().unwrap().to_string();
+        let bio: String = map.get(BIO_KEY)?.as_s().unwrap().to_string();
         let birthday_string: String = map.get(BIRTHDAY_KEY)?.as_s().unwrap().to_string();
         let birthday = NaiveDate::parse_from_str(&birthday_string, "%Y-%m-%d").unwrap();
         Some(Self {
@@ -57,6 +59,7 @@ impl Item for Athlete {
             athlete_data: AthleteData {
                 first_name,
                 last_name,
+                bio,
                 birthday,
             },
         })
@@ -73,6 +76,10 @@ impl Item for Athlete {
             AttributeValue::S(self.athlete_data.last_name),
         );
         map.insert(
+            BIO_KEY.to_string(),
+            AttributeValue::S(self.athlete_data.bio),
+        );
+        map.insert(
             BIRTHDAY_KEY.to_string(),
             AttributeValue::S(self.athlete_data.birthday.to_string()),
         );
@@ -86,4 +93,27 @@ pub fn athlete_routes() -> axum::Router<Client> {
         .route("/", get(get_items::<Athlete>))
         .route("/:competition_id", get(get_item::<Athlete>))
         .route("/:competition_id", delete(delete_item::<Athlete>))
+}
+
+// Test that we can convert an Athlete into a hashmap and back
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_athlete_into_hashmap() {
+        let athlete = Athlete {
+            id: Uuid::new_v4(),
+            athlete_data: AthleteData {
+                first_name: "John".to_string(),
+                last_name: "Doe".to_string(),
+                bio: "A bio".to_string(),
+                birthday: NaiveDate::from_ymd_opt(1990, 1, 1).unwrap(),
+            },
+        };
+        let cloned_athlete = athlete.clone();
+        let hashmap = cloned_athlete.into_hashmap();
+        let athlete2 = Athlete::from_hashmap(hashmap).unwrap();
+        assert_eq!(athlete, athlete2);
+    }
 }

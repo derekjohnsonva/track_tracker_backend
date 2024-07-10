@@ -9,22 +9,22 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const TABLE_NAME: &'static str = "competitions";
-pub const ID_KEY: &'static str = "Id";
-const NAME_KEY: &'static str = "Name";
-const LOCATION_KEY: &'static str = "Location";
-const START_DATE_KEY: &'static str = "StartDate";
-const END_DATE_KEY: &'static str = "EndDate";
+pub const TABLE_NAME: &str = "competitions";
+pub const ID_KEY: &str = "Id";
+const NAME_KEY: &str = "Name";
+const LOCATION_KEY: &str = "Location";
+const START_DATE_KEY: &str = "StartDate";
+const END_DATE_KEY: &str = "EndDate";
 
 // Define your Competition struct
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 struct Competition {
     id: Uuid,
     #[serde(flatten)]
     competition_data: CompetitionData,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 struct CompetitionData {
     name: String,
     location: String,
@@ -46,7 +46,7 @@ impl Item for Competition {
     fn table_name() -> &'static str {
         TABLE_NAME
     }
-    fn primary_key_name() -> &'static str {
+    fn partition_key_name() -> &'static str {
         ID_KEY
     }
 
@@ -99,4 +99,26 @@ pub fn competition_routes() -> axum::Router<Client> {
         .route("/", get(get_items::<Competition>))
         .route("/:competition_id", get(get_item::<Competition>))
         .route("/:competition_id", delete(delete_item::<Competition>))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_competition_into_hashmap() {
+        let competition = Competition {
+            id: Uuid::new_v4(),
+            competition_data: CompetitionData {
+                name: "Test Competition".to_string(),
+                location: "Test Location".to_string(),
+                start_date: NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
+                end_date: NaiveDate::from_ymd_opt(2021, 1, 2).unwrap(),
+            },
+        };
+        let cloned_competition = competition.clone();
+        let map = competition.into_hashmap();
+        let competition2 = Competition::from_hashmap(map).unwrap();
+        assert_eq!(cloned_competition, competition2);
+    }
 }

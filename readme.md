@@ -67,3 +67,32 @@ A generic user type. Should have some sort of credentialed sign in. An Athlete i
 - [ ] Add/delete/modify a user
 - [ ] add/remove athletes from a following list
 - [ ] get all upcoming competitions from all following athletes
+
+## Model Data
+
+All dates are stored in the format %Y-%m-%d (i.e. 2015-09-05)
+All datetimes are stored in the format RFC3339 (i.e. 1996-12-19T16:39:57-08:00)
+
+### Athlete
+- id: UUID
+- first_name: String
+- last_name: String
+- bio: String
+- birthday: Date
+
+### Competition
+- id: UUID
+- name: String
+- location: String
+- start_date: Date
+- end_date: Date
+
+### Event
+- id: UUID
+- competition_id: UUID
+- name: String (This is the event the athletes will compete in i.e. Men's 200m)
+- date_time: DateTime
+
+### User
+- id: UUID
+- athletes: \[UUID\] An array of athletes the user follows
